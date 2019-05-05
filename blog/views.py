@@ -1,10 +1,13 @@
-from django.shortcuts import render
+from django.shortcuts import render,get_object_or_404,redirect
 from blog.models import Post,Comment
+from django.contrib.auth.decorators import login_required
 from django.utils import timezone
+from blog.forms import PostForm,PostComment
 from django.views.generic import (TemplateView,ListView,CreateView,DeleteView,DetailView,UpdateView)
 from django.urls import reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin
 ################################################## All Class based view ###############
+
 class AboutView(TemplateView):
     template_name = 'blog/about.html'
 
@@ -46,4 +49,43 @@ class PostDraftView(LoginRequiredMixin,ListView):
 
     def get_queryset(self):
         return Post.objects.filter(publish_date__isnull=True).order_by('date')
+
+#########################################
+# function based view for comment adding ###
+##########################################
+@login_required
+def post_publish(request):
+    post = get_object_or_404(Post,pk=pk)
+    post.publish()
+    return  redirect('detail_post',pk=pk)
+
+
+@login_required
+def add_comment_to_post(request,pk):
+    post = get_object_or_404(Post, pk=pk)
+    if request.method == 'POST':
+        form = PostComment()
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.post = post
+            comment.save()
+            return redirect('detail_post',{'form':form})
+    else:
+        form = PostComment()
+        return render('blog/post_detail.html',{'form': form})
+
+
+@login_required()
+def comment_approve(request, pk):
+    comment = get_object_or_404(Comment, pk=pk)
+    comment.approve()
+    return redirect('detail_post', pk=comment.post.pk)
+
+
+@login_required
+def comment_remove(request, pk):
+    comment = get_object_or_404(Comment, pk=pk)
+    post_pk = comment.post.pk
+    comment.delete()
+    return redirect('detail_post', pk=post_pk)
 
